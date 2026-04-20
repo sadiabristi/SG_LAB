@@ -6,15 +6,23 @@ from torchvision import transforms, models
 from PIL import Image
 import timm
 import os
+import gdown   # ✅ NEW
 
-#  CONFIG 
+# ================= CONFIG =================
 IMAGE_SIZE = 224
 CLASSES = ["Healthy", "Mosaic", "RedRot", "Rust", "Yellow"]
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 MODEL_PATH = "best_vit_cnn.pth"
+FILE_ID = "1HtGwAPqvKtB3Aa-e_xFnIVB8_ep814QB"   # ✅ your drive id
 
-# MODEL 
+# ================= DOWNLOAD MODEL =================
+def download_model():
+    if not os.path.exists(MODEL_PATH):
+        url = f"https://drive.google.com/uc?id={FILE_ID}"
+        gdown.download(url, MODEL_PATH, quiet=False)
+
+# ================= MODEL =================
 
 class CNNBranch(nn.Module):
     def __init__(self):
@@ -27,7 +35,7 @@ class CNNBranch(nn.Module):
         x = self.backbone(x)
         x = self.pool(x)
         x = torch.flatten(x, 1)
-        return x  # (B, 2048)
+        return x
 
 
 class ViTBranch(nn.Module):
@@ -40,7 +48,7 @@ class ViTBranch(nn.Module):
         )
 
     def forward(self, x):
-        return self.vit(x)  # (B, 768)
+        return self.vit(x)
 
 
 class HybridViTCNN(nn.Module):
@@ -84,14 +92,16 @@ class HybridViTCNN(nn.Module):
         fused = torch.cat([v, c], dim=1)
         return self.head(fused)
 
-
-# LOAD MODEL 
+# ================= LOAD MODEL =================
 
 @st.cache_resource
 def load_model():
+    download_model()   # ✅ MUST
+
     model = HybridViTCNN(num_classes=len(CLASSES))
     state_dict = torch.load(MODEL_PATH, map_location=DEVICE)
     model.load_state_dict(state_dict)
+
     model.to(DEVICE)
     model.eval()
     return model
@@ -99,7 +109,7 @@ def load_model():
 
 model = load_model()
 
-#  TRANSFORM
+# ================= TRANSFORM =================
 
 transform = transforms.Compose([
     transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
@@ -110,7 +120,7 @@ transform = transforms.Compose([
     )
 ])
 
-#  UI 
+# ================= UI =================
 
 st.title("🌿 Sugarcane Disease Classifier (ViT + CNN)")
 st.write("Upload a leaf image to classify disease")
