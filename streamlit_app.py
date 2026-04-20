@@ -16,13 +16,18 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 MODEL_PATH = "best_vit_cnn.pth"
 
-# 🔥 GOOGLE DRIVE AUTO DOWNLOAD
-FILE_ID = "1pwUoLixTrTrees-VvRwevocXZlMKX6BG"   # তোমার ID বসাও
+# 🔥 GOOGLE DRIVE DOWNLOAD (FIXED SAFE VERSION)
+FILE_ID = "1pwUoLixTrTrees-VvRwevocXZlMKX6BG"
 URL = f"https://drive.google.com/uc?id={FILE_ID}"
 
-if not os.path.exists(MODEL_PATH):
-    st.info("Downloading model from Google Drive...")
-    gdown.download(URL, MODEL_PATH, quiet=False)
+@st.cache_resource
+def download_model():
+    if not os.path.exists(MODEL_PATH):
+        with st.spinner("Downloading model from Google Drive..."):
+            gdown.download(URL, MODEL_PATH, quiet=False)
+    return MODEL_PATH
+
+download_model()
 
 # ================= MODEL =================
 
@@ -98,7 +103,7 @@ class HybridViTCNN(nn.Module):
 def load_model():
     model = HybridViTCNN(num_classes=len(CLASSES))
 
-    state_dict = torch.load(MODEL_PATH, map_location=DEVICE, weights_only=False)
+    state_dict = torch.load(MODEL_PATH, map_location=DEVICE)
 
     model.load_state_dict(state_dict, strict=False)
 
@@ -126,7 +131,7 @@ st.write("Upload a leaf image to classify disease")
 
 uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
 
-if uploaded_file is not None:
+if uploaded_file:
     image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="Uploaded Image", use_container_width=True)
 
