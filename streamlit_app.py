@@ -6,15 +6,25 @@ from torchvision import transforms, models
 from PIL import Image
 import timm
 import os
+import gdown
 
-#  CONFIG 
+# ================= CONFIG =================
 IMAGE_SIZE = 224
 CLASSES = ["Healthy", "Mosaic", "RedRot", "Rust", "Yellow"]
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 MODEL_PATH = "best_vit_cnn.pth"
 
-# MODEL 
+# 🔥 GOOGLE DRIVE AUTO DOWNLOAD
+FILE_ID = "1pwUoLixTrTrees-VvRwevocXZlMKX6BG"   # তোমার ID বসাও
+URL = f"https://drive.google.com/uc?id={FILE_ID}"
+
+if not os.path.exists(MODEL_PATH):
+    st.info("Downloading model from Google Drive...")
+    gdown.download(URL, MODEL_PATH, quiet=False)
+
+# ================= MODEL =================
 
 class CNNBranch(nn.Module):
     def __init__(self):
@@ -26,8 +36,7 @@ class CNNBranch(nn.Module):
     def forward(self, x):
         x = self.backbone(x)
         x = self.pool(x)
-        x = torch.flatten(x, 1)
-        return x  # (B, 2048)
+        return torch.flatten(x, 1)
 
 
 class ViTBranch(nn.Module):
@@ -40,13 +49,12 @@ class ViTBranch(nn.Module):
         )
 
     def forward(self, x):
-        return self.vit(x)  # (B, 768)
+        return self.vit(x)
 
 
 class HybridViTCNN(nn.Module):
     def __init__(self, num_classes=5):
         super().__init__()
-
         self.vit = ViTBranch()
         self.cnn = CNNBranch()
 
@@ -84,33 +92,34 @@ class HybridViTCNN(nn.Module):
         fused = torch.cat([v, c], dim=1)
         return self.head(fused)
 
-
-# LOAD MODEL 
+# ================= LOAD MODEL =================
 
 @st.cache_resource
 def load_model():
     model = HybridViTCNN(num_classes=len(CLASSES))
-    state_dict = torch.load(MODEL_PATH, map_location=DEVICE)
-    model.load_state_dict(state_dict)
+
+    state_dict = torch.load(MODEL_PATH, map_location=DEVICE, weights_only=False)
+
+    model.load_state_dict(state_dict, strict=False)
+
     model.to(DEVICE)
     model.eval()
     return model
 
-
 model = load_model()
 
-#  TRANSFORM
+# ================= TRANSFORM =================
 
 transform = transforms.Compose([
     transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
     transforms.ToTensor(),
     transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
-        std =[0.229, 0.224, 0.225]
+        std=[0.229, 0.224, 0.225]
     )
 ])
 
-#  UI 
+# ================= UI =================
 
 st.title("🌿 Sugarcane Disease Classifier (ViT + CNN)")
 st.write("Upload a leaf image to classify disease")
@@ -119,7 +128,7 @@ uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="Uploaded Image", use_column_width=True)
+    st.image(image, caption="Uploaded Image", use_container_width=True)
 
     img_tensor = transform(image).unsqueeze(0).to(DEVICE)
 
